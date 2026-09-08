@@ -23,8 +23,8 @@ def obtener_instancia_por_id(db: Session, id_instancia: int) -> Optional[Instanc
 def buscar_vuelos_directos(
     db: Session,
     origen: str,
-    destino: str,
-    fecha: date,
+    destino: Optional[str] = None,
+    fecha: Optional[date] = None,
     pasajeros: int = 1,
     clase: Optional[str] = None,
 ) -> List[InstanciaVuelo]:
@@ -32,6 +32,9 @@ def buscar_vuelos_directos(
     Búsqueda optimizada de vuelos directos para una fecha y ruta específica (RF-01).
     Filtra por cupos disponibles en la clase solicitada.
     """
+    if fecha is None:
+        fecha = date.today()
+
     inicio_dia = datetime.combine(fecha, time.min)
     fin_dia = datetime.combine(fecha, time.max)
 
@@ -46,12 +49,14 @@ def buscar_vuelos_directos(
         )
         .filter(
             Ruta.id_aeropuerto_origen == origen.upper(),
-            Ruta.id_aeropuerto_destino == destino.upper(),
             InstanciaVuelo.fecha_salida >= inicio_dia,
             InstanciaVuelo.fecha_salida <= fin_dia,
             InstanciaVuelo.estado == "Programado",
         )
     )
+
+    if destino and destino != "%":
+        query = query.filter(Ruta.id_aeropuerto_destino == destino.upper())
 
     if clase == "Económica":
         query = query.filter(InstanciaVuelo.asientos_disponibles_eco >= pasajeros)
