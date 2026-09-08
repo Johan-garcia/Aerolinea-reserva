@@ -1,0 +1,128 @@
+erDiagram
+
+    AEROPUERTO {
+        string id_aeropuerto PK "IATA: BOG, MDE, etc."
+        string nombre
+        string ciudad
+        string pais
+    }
+
+    RUTA {
+        int id_ruta PK
+        string id_aeropuerto_origen FK
+        string id_aeropuerto_destino FK
+        int distancia_km
+    }
+
+    AVION {
+        int id_avion PK
+        string modelo
+        int capacidad_total
+        int filas
+        int columnas
+    }
+
+    VUELO_PROGRAMADO {
+        string id_vuelo_programado PK "Ej: AV9301"
+        int id_ruta FK
+        time hora_salida_programada
+        time hora_llegada_programada
+    }
+
+    INSTANCIA_VUELO {
+        int id_instancia_vuelo PK
+        string id_vuelo_programado FK
+        int id_avion FK
+        datetime fecha_salida
+        int asientos_disponibles_eco "Control inventario"
+        int asientos_disponibles_biz "Control inventario"
+        string estado "Programado, En Vuelo, Cancelado"
+    }
+
+    TARIFA {
+        int id_tarifa PK
+        string clase "Económica / Ejecutiva"
+        string tipo_regla "Promocional / Flexible"
+        decimal porcentaje_reembolso
+    }
+
+    PRECIO_VUELO {
+        int id_precio PK
+        int id_instancia_vuelo FK
+        int id_tarifa FK
+        decimal precio_base
+    }
+
+    ASIENTO {
+        int id_asiento PK
+        int id_avion FK
+        string numero_asiento "Ej: 12A"
+        string clase
+    }
+
+    PASAJERO {
+        int id_pasajero PK
+        string tipo_documento
+        string numero_documento
+        string nombres
+        string apellidos
+        string email
+        string telefono
+    }
+
+    AGENCIA_ALIADA {
+        int id_agencia PK
+        string nombre_agencia
+        string codigo_api_key
+        decimal porcentaje_comision
+    }
+
+    RESERVA {
+        int id_reserva PK "PNR ej: X7K9LP"
+        int id_pasajero_comprador FK
+        int id_agencia FK "Nullable si es directa"
+        datetime fecha_creacion
+        string estado "Pendiente, Confirmada, Cancelada"
+        decimal monto_total
+    }
+
+    DETALLE_RESERVA {
+        int id_detalle PK
+        int id_reserva FK
+        int id_instancia_vuelo FK
+        int id_pasajero FK
+        int id_asiento FK "Nullable hasta check-in"
+        int id_tarifa FK
+        decimal precio_aplicado
+    }
+
+    PAGO {
+        int id_pago PK
+        int id_reserva FK
+        datetime fecha_pago
+        decimal monto
+        string metodo_pago
+        string id_transaccion_proveedor "UUID Pasarela"
+        string estado_pago "Aprobado, Rechazado"
+    }
+
+    %% RELACIONES
+    AEROPUERTO ||--o{ RUTA : "Origen"
+    AEROPUERTO ||--o{ RUTA : "Destino"
+    RUTA ||--o{ VUELO_PROGRAMADO : "Tiene asignadas"
+    VUELO_PROGRAMADO ||--o{ INSTANCIA_VUELO : "Genera salidas"
+    AVION ||--o{ INSTANCIA_VUELO : "Asignado a"
+    AVION ||--o{ ASIENTO : "Tiene físicas"
+
+    INSTANCIA_VUELO ||--o{ PRECIO_VUELO : "Tiene tarifas"
+    TARIFA ||--o{ PRECIO_VUELO : "Aplica a"
+
+    PASAJERO ||--o{ RESERVA : "Compra"
+    AGENCIA_ALIADA ||--o{ RESERVA : "Intermedia"
+    RESERVA ||--|{ DETALLE_RESERVA : "Contiene (Trayectos)"
+    RESERVA ||--o{ PAGO : "Se liquida con"
+
+    INSTANCIA_VUELO ||--o{ DETALLE_RESERVA : "Reservado en"
+    PASAJERO ||--o{ DETALLE_RESERVA : "Asignado a trayecto"
+    ASIENTO ||--o| DETALLE_RESERVA : "Ocupado en"
+    TARIFA ||--o{ DETALLE_RESERVA : "Aplica en"
