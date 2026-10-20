@@ -45,7 +45,7 @@ services:
       ATHENA_OUTPUT: ${ATHENA_OUTPUT:-}
       AWS_REGION: ${AWS_REGION:-us-east-1}
       ANALYTICS_CACHE_TTL_SECONDS: ${ANALYTICS_CACHE_TTL_SECONDS:-0}
-      DEMO_ROUTES: ${DEMO_ROUTES:-BOG-MDE,MDE-BOG,BOG-CTG,CLO-CTG,BGA-BOG,BOG-SMR}
+      DEMO_ROUTES: ${DEMO_ROUTES:-BOG-CTG,CTG-MDE,MDE-CUC,CTG-SMR,BAQ-BGA,LET-BAQ}
     volumes:
       # El "data lake" local: el job Spark escribe aquí y DuckDB lee de aquí.
       - ./data/lake:/data/lake
@@ -72,7 +72,7 @@ services:
       - ./data:/data
     command: >
       sh -c "pip install --quiet --no-cache-dir numpy pandas &&
-             python -m airline_data.generate --seed ${TEAM_SEED:-12345} --rows ${DATA_ROWS:-2000000} --out /data/raw"
+             python -m airline_data.generate --seed ${TEAM_SEED:-24306} --rows ${DATA_ROWS:-2000000} --out /data/raw"
 
   spark-job:
     profiles: ["batch"]

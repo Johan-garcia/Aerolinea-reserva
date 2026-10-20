@@ -77,7 +77,7 @@ PostgreSQL bloquea la fila durante el UPDATE. Las transacciones concurrentes esp
 bloqueo, **vuelven a evaluar** `seats_available > 0` contra el valor ya confirmado. Si el UPDATE no
 devuelve fila: o el vuelo no existe (404) o no quedan sillas (409). Nunca hay 5xx. Además la tabla
 tiene `CHECK (seats_available >= 0)` como red de seguridad. Evidencia del harness: en 5 rondas de
-50 peticiones simultáneas, exactamente 1 respuesta 201 y 49 respuestas 409; con K = 3, exactamente 3.
+50 peticiones simultáneas, exactamente 1 respuesta 201 y 49 respuestas 409; con K = 5 (el K de nuestra semilla), exactamente 5.
 
 Es más simple y rápido que el `SELECT … FOR UPDATE` del Parcial 1 porque el bloqueo dura solo un
 UPDATE y un INSERT.
@@ -100,8 +100,8 @@ UPDATE y un INSERT.
    el mes; vendidas/ingresos/bookings = solo CONFIRMED; cancelaciones = CANCELLED;
    ocupación = vendidas / capacidad.
 
-Verificado contra el oráculo del harness (semilla 12345): 2.017.079 filas curadas (exacto), ingresos
-por mes exactos, y capacidad, vendidas, ingresos y cancelaciones idénticos en las 240 filas de métricas
+Verificado contra el oráculo del harness (semilla 24306, 12 rutas): 1.977.131 filas curadas (exacto), ingresos
+por mes exactos, y capacidad, vendidas, ingresos y cancelaciones idénticos en las 288 filas de métricas (12 rutas × 24 meses)
 (diferencia de ocupación = 0,0).
 
 > **Ojo con `bookings`:** el contrato (`DATA.md` y el enunciado) dice que `bookings` cuenta solo
@@ -138,7 +138,7 @@ docker compose up -d --build
 
 # 2. Generar los datos crudos con la semilla del equipo (≈ 2 M filas, < 1 min)
 #    Cambie TEAM_SEED por la semilla asignada (y la misma en local_harness/config.local.yaml).
-TEAM_SEED=12345 docker compose --profile batch run --rm datagen
+TEAM_SEED=24306 docker compose --profile batch run --rm datagen
 
 # 3. "EMR local": ejecutar el job PySpark (≈ 10 s en un portátil)
 docker compose --profile batch run --rm spark-job
@@ -248,14 +248,14 @@ exige EMR. Elegimos **EMR en cluster** (1 master + 2 core m4.large, el único ti
 (R10). Cada corrida usa unas 12 horas-instancia normalizadas, lejos del tope de 150.
 *Cost Optimization*, *Sustainability*.
 
-**Distribución de los datos.** Parquet es columnar y comprimido: el CSV de 83 MB queda en ~19 MB y
+**Distribución de los datos.** Parquet es columnar y comprimido: el CSV de 81 MB queda en ~19 MB y
 una consulta que solo lee `route` y `status` no lee el resto de columnas. Particionar por `month`
 hace que una consulta de un mes lea una sola de 24 particiones (~0,8 MB en vez de ~19 MB). Sin
 partición, R6 fallaría porque Athena escanearía el dataset completo en cada consulta mensual.
 *Performance Efficiency*, *Cost Optimization*.
 
 **Cómo obtiene el panel sus números.** El endpoint consulta Athena sobre `route_month_metrics`, una
-tabla de 240 filas (~20 KB) precalculada por el job. Latencia: 1–3 s típicos de Athena, dentro de los
+tabla de 288 filas (~20 KB) precalculada por el job. Latencia: 1–3 s típicos de Athena, dentro de los
 10 s de R7. Costo: cada consulta factura el mínimo de 10 MB (≈ US$ 0,00005). Frescura: la que dé la
 última corrida del job (mensual). **No usamos caché por defecto**: el ahorro sería de centavos y
 añade riesgo de servir datos viejos; queda disponible con `ANALYTICS_CACHE_TTL_SECONDS` si el volumen
@@ -313,9 +313,9 @@ mes (2.4, paso 8); qué pasa si EMR falla (`TERMINATE_CLUSTER`); por qué no hay
 | Req | Estado en local | Evidencia | Pendiente en AWS |
 |---|---|---|---|
 | R1 | Cumple | p95 = 0,03 s con 20 clientes (límite 1 s) | Repetir en la t3.small |
-| R2 | Cumple | 5 rondas × 50 peticiones: 1 × 201 y 49 × 409; con K = 3, exactamente 3 | — |
+| R2 | Cumple | 5 rondas × 50 peticiones: 1 × 201 y 49 × 409; con K = 5, exactamente 5 | — |
 | R3 | Cumple | 200 con la reserva, 404 si no existe | — |
-| R4 | Cumple (emulado) | 2.017.079 filas = oráculo; ingresos por mes exactos; 24 particiones | Correr `run_emr_job.sh` |
+| R4 | Cumple (emulado) | 1.977.131 filas = oráculo; ingresos por mes exactos; 24 particiones | Correr `run_emr_job.sh` |
 | R5 | Cumple (emulado) | Columnas y tipos exactos, partición `month` | Ejecutar `create_tables.sql` |
 | R6 | Cumple (emulado) | Top 10 idéntico al oráculo; una partición ≈ 0,8 MB | Bytes reales de Athena |
 | R7 | Cumple (emulado) | 5 sondas correctas en < 0,2 s; cada llamada consulta el motor | Motor Athena probado con cliente simulado (`tests/test_athena_engine.py`), falta la prueba real |

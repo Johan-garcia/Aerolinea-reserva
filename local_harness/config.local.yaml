@@ -1,6 +1,6 @@
 # Config del harness para el sistema local (docker compose). Para AWS use parcial2-harness/config.yaml.
 team_id: "team-wilches-garcia"
-seed: 12345              # <- cambie por la semilla asignada al equipo (y regenere los datos)
+seed: 24306              # semilla del equipo (si cambia, regenere los datos y vuelva a correr el job)
 
 backend:
   base_url: "http://localhost:8000"

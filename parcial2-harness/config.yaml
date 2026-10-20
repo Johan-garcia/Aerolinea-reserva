@@ -1,7 +1,7 @@
 # Copy to config.yaml and fill it in. Do NOT commit credentials; the harness uses your normal
 # AWS credentials (environment variables / ~/.aws), exactly like the AWS CLI.
 team_id: "team-wilches-garcia"
-seed: 12345              # TODO: la semilla asignada al equipo (changes your dataset AND the expected answers)
+seed: 24306              # semilla del equipo (changes your dataset AND the expected answers)
 
 backend:
   base_url: "http://YOUR-EC2-IP:8000"    # TODO: IP pública del EC2 (cambia al reiniciar el Lab)

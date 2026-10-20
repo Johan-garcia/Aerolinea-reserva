@@ -2,7 +2,7 @@
 assumptions: >
   ~200 usuarios activos/día, ~5.000 búsquedas y ~300 reservas/día (pico 20 clientes concurrentes);
   ~300 consultas/día al panel gerencial (~9.000 consultas Athena/mes, cada una factura el mínimo de 10 MB
-  porque route_month_metrics pesa ~20 KB). Datos: 2,09 M filas crudas (~83 MB CSV) y ~19 MB de Parquet
+  porque route_month_metrics pesa ~20 KB). Datos (semilla 24306): 2,05 M filas crudas (~81 MB CSV) y ~19 MB de Parquet
   curado. 1 corrida EMR por mes (3 x m4.large, < 1 h). Sistema transaccional en un solo EC2 encendido 24/7.
 line_items:
   - {service: "EC2", detail: "1 x t3.small 24/7 (Docker: PostgreSQL + FastAPI + nginx), 730 h x 0.0208", monthly_usd: 15.2}

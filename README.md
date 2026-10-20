@@ -108,14 +108,14 @@ Ideas clave:
 docker compose up -d --build
 
 # 2. Generar los datos crudos con la semilla del equipo (~2 M filas, menos de 1 minuto)
-TEAM_SEED=12345 docker compose --profile batch run --rm datagen
+TEAM_SEED=24306 docker compose --profile batch run --rm datagen
 
 # 3. "EMR local": limpiar los datos con PySpark y escribir el Parquet curado (~10 s)
 docker compose --profile batch run --rm spark-job
 ```
 
 Al arrancar, el backend crea las tablas, carga el catálogo del parcial 1 y crea **vuelos de demostración**
-para los próximos 30 días (rutas BOG-MDE, MDE-BOG, BOG-CTG, CLO-CTG, BGA-BOG y BOG-SMR).
+para los próximos 30 días (rutas BOG-CTG, CTG-MDE, MDE-CUC, CTG-SMR, BAQ-BGA y LET-BAQ, que también están en el histórico).
 
 | URL | Qué es |
 |---|---|
@@ -180,7 +180,7 @@ curl -X POST localhost:8000/admin/flights -H 'content-type: application/json' \
 curl "localhost:8000/flights/search?origin=BOG&destination=MDE&date=2030-01-15"
 curl -X POST localhost:8000/reservations -H 'content-type: application/json' \
   -d '{"flight_id":"AV100","passenger_name":"Ana Gómez","fare_class":"ECONOMY"}'
-curl "localhost:8000/analytics/occupancy?route=BGA-BOG&month=2024-03"
+curl "localhost:8000/analytics/occupancy?route=BOG-CTG&month=2024-03"
 ```
 
 ### 5.2 API del parcial 1 (`/api/v1`)
@@ -368,7 +368,7 @@ Variables de entorno del backend (ver `app/core/config.py` y `.env.example`):
 | `AWS_REGION` | `us-east-1` | Región |
 | `ANALYTICS_TIMEOUT_SECONDS` | `9` | Límite por consulta (R7 exige ≤ 10 s) |
 | `ANALYTICS_CACHE_TTL_SECONDS` | `0` | Caché en memoria del endpoint analítico (desactivada) |
-| `DEMO_ROUTES` | `BOG-MDE,…` | Rutas de los vuelos de demostración |
+| `DEMO_ROUTES` | `BOG-CTG,…` | Rutas de los vuelos de demostración |
 | `DEMO_DAYS` | `30` | Días hacia adelante con vuelos de demostración |
 | `DEV_RELOAD` | `0` | `1` = uvicorn con `--reload` (desarrollo) |
 

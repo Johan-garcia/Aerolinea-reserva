@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     ANALYTICS_CACHE_TTL_SECONDS: int = 0     # >0 activa caché en memoria; la 1a consulta siempre va al motor
 
     # Vuelos de demostración que se crean al arrancar (para probar el frontend a mano).
-    DEMO_ROUTES: str = "BOG-MDE,MDE-BOG,BOG-CTG,CLO-CTG,BGA-BOG,BOG-SMR"
+    DEMO_ROUTES: str = "BOG-CTG,CTG-MDE,MDE-CUC,CTG-SMR,BAQ-BGA,LET-BAQ"
     DEMO_DAYS: int = 30
 
     @property
