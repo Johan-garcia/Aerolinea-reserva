@@ -54,3 +54,4 @@ parcial2-harness/report.json
 parcial2-harness/report.md
 ~$*.docx
 .DS_Store
+.venv-harness/

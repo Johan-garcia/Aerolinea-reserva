@@ -194,35 +194,12 @@ Aproximaciones que hay que tener presentes:
 
 ---
 
-## 5. Despliegue en AWS (cuando toque)
+## 5. Despliegue en AWS
 
-Todo está preparado para que sea "subir y lanzar Docker". Orden recomendado para gastar poco:
-
-1. **S3:** crear un bucket, por ejemplo `airline-<equipo>`.
-2. **EMR (R4, R10):** desde el portátil, con las credenciales del Learner Lab:
-   ```bash
-   BUCKET=airline-<equipo> ./aws/emr/run_emr_job.sh
-   ```
-   Sube `data/raw` y el job, crea 3 × m4.large con `--auto-terminate` y espera a que el cluster
-   termine. Antes de la corrida completa se puede probar con una muestra
-   (`DATA_ROWS=50000 docker compose --profile batch run --rm datagen`; recuerde regenerar las 2 M filas antes de la corrida final).
-3. **Glue + Athena (R5, R6):** en la consola de Athena, configurar la ubicación de resultados
-   (`s3://airline-<equipo>/athena-results/`) y ejecutar `aws/athena/create_tables.sql` reemplazando
-   `YOUR-BUCKET`. Las tablas usan *partition projection*, así que no hace falta crawler ni `MSCK REPAIR`.
-4. **EC2 (R1–R3, R7–R9):** lanzar una **t3.small** (Amazon Linux 2023, 20 GB gp3) con el perfil
-   `LabInstanceProfile` (da permisos de Athena/S3 sin escribir credenciales). Security group: abrir
-   3000 y 8000 (y 22 solo para su IP). Luego:
-   ```bash
-   sudo dnf install -y docker git && sudo systemctl enable --now docker
-   # instalar el plugin compose: https://docs.docker.com/compose/install/linux/
-   git clone <repo> && cd bigdata-service
-   echo "ATHENA_OUTPUT=s3://airline-<equipo>/athena-results/" > .env
-   docker compose -f docker-compose.yml -f docker-compose.aws.yml up -d --build
-   ```
-5. **Harness real:** `cd parcial2-harness && cp config.example.yaml config.yaml`, poner la semilla,
-   las URLs `http://<IP-PUBLICA>:8000` y `:3000`, y el bucket de resultados; luego `pytest`.
-6. **Apagar al terminar el día:** detener la EC2 (el Learner Lab cambia la IP al reiniciar; actualice
-   `config.yaml`). Verificar que no quede ningún cluster EMR activo.
+La guía paso a paso, con scripts para cada etapa, está en **[DESPLIEGUE_AWS.md](DESPLIEGUE_AWS.md)**:
+bucket S3 → EC2 t3.small (`aws/ec2/bootstrap.sh`) → datos → EMR (`aws/emr/run_emr_job.sh`) →
+Glue/Athena (`aws/athena/setup_athena.sh`) → harness (`aws/harness/run_harness.sh`) → apagado
+(`aws/estado_aws.sh`).
 
 ---
 
