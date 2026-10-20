@@ -105,13 +105,14 @@ function renderFlights(flights) {
 
 function flightRow(f) {
   const low = f.seats_available <= 5;
-  const li = el("li", { class: "flight", testid: "flight-row", "data-flight-id": f.flight_id });
+  const li = el("li", { class: "flight", testid: "flight-row", "data-flight-id": f.flight_id, "data-price-cents": f.price_cents });
   const stub = el("div", { class: "stub" },
     el("div", {}, el("div", { class: "code" }, f.flight_id), el("div", { class: "meta" }, f.route)),
     el("div", {}, el("div", {}, fmtDate(f.flight_date)),
       el("div", { class: `seats-left${low ? " low" : ""}` },
         `${f.seats_available} ${f.seats_available === 1 ? "silla disponible" : "sillas disponibles"}`)),
-    el("div", { class: "price" }, money(f.price_cents), el("small", {}, "desde")),
+    el("div", { class: "price" }, el("span", { class: "price-value" }, money(f.price_cents)),
+      el("small", { class: "price-label" }, "desde")),
     el("button", { class: "btn", type: "button", testid: "reserve-button",
       "aria-expanded": "false", onclick: () => openBooking(li, f) }, "Reservar"),
   );
@@ -122,6 +123,12 @@ function flightRow(f) {
 function openBooking(li, f) {
   // Solo un formulario abierto a la vez: así los selectores del pasajero son únicos.
   document.querySelectorAll(".booking").forEach((b) => b.remove());
+  // Los demás vuelos vuelven a mostrar su precio "desde".
+  document.querySelectorAll(".price-label").forEach((s) => { s.textContent = "desde"; });
+  document.querySelectorAll(".flight").forEach((row) => {
+    const v = row.querySelector(".price-value");
+    if (v && row.dataset.priceCents) v.textContent = money(Number(row.dataset.priceCents));
+  });
   document.querySelectorAll("[data-testid=reserve-button]").forEach((b) => b.setAttribute("aria-expanded", "false"));
   li.querySelector("[data-testid=reserve-button]").setAttribute("aria-expanded", "true");
 
@@ -136,6 +143,16 @@ function openBooking(li, f) {
       el("span", {}, `Ejecutiva · ${money(f.price_business_cents ?? Math.round(f.price_cents * 2.5))}`)),
   );
   const submit = el("button", { class: "btn", type: "submit", testid: "confirm-submit" }, "Confirmar reserva");
+
+  // El precio grande del vuelo sigue a la clase elegida.
+  const businessCents = f.price_business_cents ?? Math.round(f.price_cents * 2.5);
+  const showFarePrice = (value) => {
+    const isBusiness = value === "BUSINESS";
+    li.querySelector(".price-value").textContent = money(isBusiness ? businessCents : f.price_cents);
+    li.querySelector(".price-label").textContent = isBusiness ? "ejecutiva" : "económica";
+  };
+  fare.addEventListener("change", (ev) => showFarePrice(ev.target.value));
+  showFarePrice("ECONOMY");
 
   const booking = el("form", { class: "booking reveal", novalidate: true },
     el("div", { class: "field" }, el("label", { for: nameId }, "Nombre del pasajero"), name),
