@@ -4,15 +4,15 @@ team_id: "team-wilches-garcia"
 seed: 24306              # semilla del equipo (changes your dataset AND the expected answers)
 
 backend:
-  base_url: "http://YOUR-EC2-IP:8000"    # TODO: IP pública del EC2 (cambia al reiniciar el Lab)
+  base_url: "http://54.146.171.92:8000"    # TODO: IP pública del EC2 (cambia al reiniciar el Lab)
 frontend:
-  base_url: "http://YOUR-EC2-IP:3000"
+  base_url: "http://54.146.171.92:3000"
 
 aws:
   region: us-east-1
   athena_workgroup: primary
   athena_database: airline_analytics
-  athena_output: "s3://YOUR-BUCKET/athena-results/"  # TODO: bucket del equipo   # needed only if your workgroup has no default
+  athena_output: "s3://airline-wilches-garcia-24306/athena-results/"  # TODO: bucket del equipo   # needed only if your workgroup has no default
   tables:
     detail: reservations_curated        # Parquet, partitioned by month (string)
     metrics: route_month_metrics

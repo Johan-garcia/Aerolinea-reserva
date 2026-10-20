@@ -48,7 +48,7 @@ EC2 → **Launch instance**:
 |---|---|
 | Name | `airline-app` |
 | AMI | **Ubuntu Server 24.04 LTS** (x86_64) |
-| Instance type | **t3.small** |
+| Instance type | **t3.small** (no t3.micro: con t3.micro falla R1 por 15 ms y R12 por la diferencia de costo) |
 | Key pair | `vockey` |
 | Network | VPC por defecto, *Auto-assign public IP*: **Enable** |
 | Security group (nuevo) `airline-sg` | Entrada: TCP **3000** desde 0.0.0.0/0 · TCP **8000** desde 0.0.0.0/0 · TCP **22** desde la lista de prefijos `com.amazonaws.us-east-1.ec2-instance-connect` (en *Source* escriban `ec2-instance-connect` y elíjanla; sin esta regla EC2 Instance Connect no conecta) y, si van a usar SSH desde el portátil, desde *My IP* |
