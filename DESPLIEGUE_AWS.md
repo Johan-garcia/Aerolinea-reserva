@@ -51,7 +51,7 @@ EC2 → **Launch instance**:
 | Instance type | **t3.small** |
 | Key pair | `vockey` |
 | Network | VPC por defecto, *Auto-assign public IP*: **Enable** |
-| Security group (nuevo) `airline-sg` | Entrada: TCP **3000** desde 0.0.0.0/0 · TCP **8000** desde 0.0.0.0/0 · TCP **22** desde *My IP* y desde `18.206.107.24/29` (rango de EC2 Instance Connect en us-east-1) |
+| Security group (nuevo) `airline-sg` | Entrada: TCP **3000** desde 0.0.0.0/0 · TCP **8000** desde 0.0.0.0/0 · TCP **22** desde la lista de prefijos `com.amazonaws.us-east-1.ec2-instance-connect` (en *Source* escriban `ec2-instance-connect` y elíjanla; sin esta regla EC2 Instance Connect no conecta) y, si van a usar SSH desde el portátil, desde *My IP* |
 | Storage | **20 GiB gp3** |
 | Advanced details → IAM instance profile | **LabInstanceProfile** |
 | Advanced details → Metadata response hop limit | **2** (sin esto el contenedor del backend no obtiene credenciales para Athena) |
@@ -65,6 +65,7 @@ En esa terminal:
 ```bash
 git clone https://github.com/Johan-garcia/Aerolinea-reserva.git
 cd Aerolinea-reserva
+git checkout parcial2-despliegue-aws   # solo mientras el PR #1 no esté fusionado en main
 
 # Credenciales del Lab para la AWS CLI (las usan EMR, Athena y el harness; los contenedores NO las usan)
 mkdir -p ~/.aws
