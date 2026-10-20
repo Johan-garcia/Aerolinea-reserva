@@ -130,8 +130,10 @@ function openBooking(li, f) {
   const name = el("input", { id: nameId, class: "input", testid: "passenger-name", required: true,
     autocomplete: "name", placeholder: "Como aparece en el documento" });
   const fare = el("div", { class: "fare-toggle", role: "radiogroup", "aria-label": "Clase" },
-    el("label", {}, el("input", { type: "radio", name: "fare", value: "ECONOMY", checked: true }), el("span", {}, "Económica")),
-    el("label", {}, el("input", { type: "radio", name: "fare", value: "BUSINESS" }), el("span", {}, "Ejecutiva")),
+    el("label", {}, el("input", { type: "radio", name: "fare", value: "ECONOMY", checked: true }),
+      el("span", {}, `Económica · ${money(f.price_cents)}`)),
+    el("label", {}, el("input", { type: "radio", name: "fare", value: "BUSINESS" }),
+      el("span", {}, `Ejecutiva · ${money(f.price_business_cents ?? Math.round(f.price_cents * 2.5))}`)),
   );
   const submit = el("button", { class: "btn", type: "submit", testid: "confirm-submit" }, "Confirmar reserva");
 
@@ -171,18 +173,21 @@ function openBooking(li, f) {
   name.focus();
 }
 
-function renderConfirmation(r, f) {
-  const [o, d] = f.route.split("-");
+function renderConfirmation(r, f, titulo = "Reserva confirmada") {
+  const route = r.route || f.route;
+  const flightDate = r.flight_date || f.flight_date;
+  const [o, d] = route.split("-");
   const pass = el("article", { class: "boarding-pass reveal", "aria-labelledby": "bp-title" },
     el("div", { class: "main" },
       el("span", { class: "status-ok", id: "bp-title" },
-        el("span", { "aria-hidden": "true" }, "✓"), "Reserva confirmada"),
+        el("span", { "aria-hidden": "true" }, "✓"), titulo),
       el("p", { class: "bp-route" }, o, el("span", { "aria-hidden": "true" }, "→"), d),
       el("dl", { class: "bp-grid" },
         el("div", {}, el("dt", {}, "Pasajero"), el("dd", {}, r.passenger_name)),
         el("div", {}, el("dt", {}, "Vuelo"), el("dd", {}, r.flight_id)),
-        el("div", {}, el("dt", {}, "Fecha"), el("dd", {}, fmtDate(f.flight_date))),
+        el("div", {}, el("dt", {}, "Fecha"), el("dd", {}, fmtDate(flightDate))),
         el("div", {}, el("dt", {}, "Clase"), el("dd", {}, r.fare_class === "BUSINESS" ? "Ejecutiva" : "Económica")),
+        r.price_cents != null ? el("div", {}, el("dt", {}, "Precio"), el("dd", {}, money(r.price_cents))) : null,
       ),
     ),
     el("div", { class: "tear" },
@@ -191,6 +196,29 @@ function renderConfirmation(r, f) {
       el("button", { class: "btn ghost", type: "button", onclick: () => runSearch() }, "Reservar otro vuelo"),
     ),
   );
+  results.hidden = false;
   results.replaceChildren(pass);
   pass.scrollIntoView({ behavior: "smooth", block: "start" });
 }
+
+// Consultar una reserva ya hecha con su código (GET /reservations/{id}, R3).
+const lookup = $("lookup");
+const lookupId = $("lookup-id");
+lookup.addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const code = lookupId.value.trim().toUpperCase();
+  if (!code) {
+    showNotice("Escribe el código de la reserva, por ejemplo R7K334UNY5S8.", true);
+    return;
+  }
+  const btn = lookup.querySelector("[type=submit]");
+  btn.disabled = true;
+  try {
+    const r = await api(`/reservations/${encodeURIComponent(code)}`);
+    renderConfirmation(r, {}, "Reserva encontrada");
+  } catch (e) {
+    showNotice(e.status === 404 ? `No existe una reserva con el código ${code}.` : `No se pudo consultar la reserva: ${e.message}`, true);
+  } finally {
+    btn.disabled = false;
+  }
+});

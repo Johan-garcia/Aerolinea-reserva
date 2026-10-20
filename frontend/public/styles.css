@@ -460,3 +460,7 @@ h1, h2, h3 { font-family: var(--display); font-weight: 600; margin: 0; line-heig
   .route-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .route-opt-cities { white-space: normal; }
 }
+
+/* Consulta de una reserva existente */
+.lookup { margin-top: 32px; padding-top: 24px; border-top: 1px dashed var(--mist); }
+.lookup .input { min-width: 240px; text-transform: uppercase; }

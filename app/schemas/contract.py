@@ -32,6 +32,7 @@ class FlightOut(BaseModel):
     flight_date: date
     seats_available: int
     price_cents: int
+    price_business_cents: int | None = None   # extra, no lo exige el contrato
 
 
 class ReservationCreate(BaseModel):
@@ -46,6 +47,10 @@ class ReservationOut(BaseModel):
     status: str
     passenger_name: str
     fare_class: str | None = None
+    # Extras (el contrato no los exige): sirven para mostrar y consultar la reserva en el frontend.
+    price_cents: int | None = None
+    route: str | None = None
+    flight_date: date | None = None
 
 
 class OccupancyOut(BaseModel):

@@ -23,6 +23,14 @@ from sqlalchemy.orm import Session
 from app.models.contract import Flight, Reservation
 from app.schemas.contract import FlightCreate, ReservationCreate
 
+# Ejecutiva paga 2,5 veces la tarifa económica, igual que en el histórico generado.
+MULTIPLICADOR_EJECUTIVA = 2.5
+
+
+def precio_ejecutiva(precio_economica: int) -> int:
+    return int(round(precio_economica * MULTIPLICADOR_EJECUTIVA))
+
+
 # Alfabeto sin caracteres ambiguos (0/O, 1/I) para que el id sea fácil de dictar.
 _ALFABETO = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
@@ -105,9 +113,8 @@ def reservar(db: Session, data: ReservationCreate) -> Reservation:
             raise FlightNotFound(data.flight_id)
         raise SoldOut(data.flight_id)
 
-    # Ejecutiva paga 2.5x, igual que en el histórico generado.
     if data.fare_class == "BUSINESS":
-        precio = int(round(precio * 2.5))
+        precio = precio_ejecutiva(precio)
 
     reserva = Reservation(
         reservation_id=nuevo_reservation_id(),

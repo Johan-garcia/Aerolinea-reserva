@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.analytics import MONTH_RE, ROUTE_RE, AnalyticsError, AnalyticsUnavailable, cache, get_engine
 from app.core.database import get_db
 from app.crud import crud_contract as crud
+from app.models.contract import Flight
 from app.schemas.contract import (
     FlightCreate,
     FlightOut,
@@ -25,13 +26,17 @@ from app.schemas.contract import (
 router = APIRouter()
 
 
-def _reserva_out(r) -> ReservationOut:
+def _reserva_out(r, db: Session) -> ReservationOut:
+    vuelo = db.get(Flight, r.flight_id)
     return ReservationOut(
         reservation_id=r.reservation_id,
         flight_id=r.flight_id,
         status=r.status,
         passenger_name=r.passenger_name,
         fare_class=r.fare_class,
+        price_cents=r.price_cents,
+        route=vuelo.route if vuelo else None,
+        flight_date=vuelo.flight_date if vuelo else None,
     )
 
 
@@ -64,6 +69,7 @@ def buscar_vuelos(
             flight_date=f.flight_date,
             seats_available=f.seats_available,
             price_cents=f.price_cents,
+            price_business_cents=crud.precio_ejecutiva(f.price_cents),
         )
         for f in crud.buscar_vuelos(db, origin, destination, date)
     ]
@@ -79,7 +85,7 @@ def rutas_con_vuelos(db: Session = Depends(get_db)):
 @router.post("/reservations", status_code=status.HTTP_201_CREATED, response_model=ReservationOut, tags=["Contrato P2"])
 def crear_reserva(data: ReservationCreate, db: Session = Depends(get_db)):
     try:
-        return _reserva_out(crud.reservar(db, data))
+        return _reserva_out(crud.reservar(db, data), db)
     except crud.FlightNotFound:
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"El vuelo {data.flight_id} no existe")
     except crud.SoldOut:
@@ -91,7 +97,7 @@ def obtener_reserva(reservation_id: str, db: Session = Depends(get_db)):
     r = crud.obtener_reserva(db, reservation_id)
     if r is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"La reserva {reservation_id} no existe")
-    return _reserva_out(r)
+    return _reserva_out(r, db)
 
 
 # ------------------------------------------------------------------------- analítica

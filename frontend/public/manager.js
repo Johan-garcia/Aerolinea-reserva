@@ -41,7 +41,7 @@ async function load(rawRoute, rawMonth) {
     render(r);
   } catch (e) {
     const msg = e.status === 404
-      ? `No hay vuelos de ${route} en ${monthName(month)}. Revisa la ruta o elige otro mes del histórico.`
+      ? `No hay datos de ${route} en ${monthName(month)}.${months.length ? ` El histórico va de ${monthName(months[0])} a ${monthName(months[months.length - 1])}.` : ""} Elige un mes de ese rango.`
       : `No se pudo consultar la ocupación: ${e.message}`;
     readout.replaceChildren(el("p", { class: "notice error", role: "alert" }, msg));
   } finally {
