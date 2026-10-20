@@ -10,6 +10,7 @@ from app.models.agency import AgenciaAliada
 from app.models.reservation import Reserva, DetalleReserva
 from app.models.payment import Pago
 from app.models.audit import AuditoriaReserva
+from app.models.contract import Flight, Reservation
 
 __all__ = [
     "Base",
@@ -28,5 +29,7 @@ __all__ = [
     "DetalleReserva",
     "Pago",
     "AuditoriaReserva",
+    "Flight",
+    "Reservation",
 ]
 

@@ -1,0 +1,13 @@
+# Proyección mensual del despliegue en AWS (Learner Lab, us-east-1). El harness suma line_items.
+assumptions: >
+  ~200 usuarios activos/día, ~5.000 búsquedas y ~300 reservas/día (pico 20 clientes concurrentes);
+  ~300 consultas/día al panel gerencial (~9.000 consultas Athena/mes, cada una factura el mínimo de 10 MB
+  porque route_month_metrics pesa ~20 KB). Datos: 2,09 M filas crudas (~83 MB CSV) y ~19 MB de Parquet
+  curado. 1 corrida EMR por mes (3 x m4.large, < 1 h). Sistema transaccional en un solo EC2 encendido 24/7.
+line_items:
+  - {service: "EC2", detail: "1 x t3.small 24/7 (Docker: PostgreSQL + FastAPI + nginx), 730 h x 0.0208", monthly_usd: 15.2}
+  - {service: "EBS", detail: "20 GB gp3 del EC2 (volumen de PostgreSQL y logs)", monthly_usd: 1.6}
+  - {service: "S3", detail: "~0,2 GB (raw CSV + Parquet + resultados Athena) + peticiones", monthly_usd: 0.1}
+  - {service: "Athena", detail: "~9.000 consultas x 10 MB mínimo facturable = ~0,09 TB x 5 USD/TB", monthly_usd: 0.45}
+  - {service: "EMR", detail: "1 corrida/mes, 3 x m4.large (1 master + 2 core), 1 h facturable: EC2 0.10 + EMR 0.03 USD/h por nodo", monthly_usd: 0.4}
+  - {service: "Glue", detail: "Data Catalog: 2 tablas + 24 particiones, dentro de la capa gratuita (1 M objetos)", monthly_usd: 0.0}

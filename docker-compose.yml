@@ -1,41 +1,91 @@
+# Sistema completo del Parcial 2 en local.
+#
+#   docker compose up -d --build                          -> db + api + frontend (siempre encendidos)
+#   docker compose --profile batch run --rm datagen       -> genera data/raw con la semilla del equipo
+#   docker compose --profile batch run --rm spark-job     -> "EMR local": PySpark aplica C1-C5 y escribe Parquet
+#
+# En AWS (EC2) se usa este mismo archivo con ANALYTICS_ENGINE=athena (ver docker-compose.aws.yml).
 services:
   db:
     image: postgres:16-alpine
     container_name: airline_postgres_db
-    restart: always
+    restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-aerolinea_db}
+    command: ["postgres", "-c", "max_connections=120"]
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
       interval: 3s
       timeout: 3s
-      retries: 10
+      retries: 20
 
   api:
     build: .
+    image: airline-api:latest
     container_name: airline_fastapi_backend
-    restart: always
+    restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
     ports:
       - "8000:8000"
     environment:
-      - PYTHONPATH=/workspace
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/aerolinea_db
-      - POSTGRES_USER=${POSTGRES_USER:-postgres}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
-      - POSTGRES_DB=${POSTGRES_DB:-aerolinea_db}
-      - API_V1_PREFIX=/api/v1
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-aerolinea_db}
+      UVICORN_WORKERS: ${UVICORN_WORKERS:-2}
+      ANALYTICS_ENGINE: ${ANALYTICS_ENGINE:-duckdb}
+      LAKE_PATH: /data/lake
+      ATHENA_DATABASE: ${ATHENA_DATABASE:-airline_analytics}
+      ATHENA_WORKGROUP: ${ATHENA_WORKGROUP:-primary}
+      ATHENA_OUTPUT: ${ATHENA_OUTPUT:-}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      ANALYTICS_CACHE_TTL_SECONDS: ${ANALYTICS_CACHE_TTL_SECONDS:-0}
+      DEMO_ROUTES: ${DEMO_ROUTES:-BOG-MDE,MDE-BOG,BOG-CTG,CLO-CTG,BGA-BOG,BOG-SMR}
     volumes:
-      - .:/workspace
-    command: ["./scripts/entrypoint.sh"]
+      # El "data lake" local: el job Spark escribe aquí y DuckDB lee de aquí.
+      - ./data/lake:/data/lake
+
+  frontend:
+    build: ./frontend
+    image: airline-frontend:latest
+    container_name: airline_frontend
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      BACKEND_URL: http://api:8000
+    ports:
+      - "3000:80"
+
+  # ------------------------------------------------------------------ batch (bajo demanda)
+  datagen:
+    profiles: ["batch"]
+    image: python:3.11-slim
+    working_dir: /harness
+    volumes:
+      - ./parcial2-harness:/harness:ro
+      - ./data:/data
+    command: >
+      sh -c "pip install --quiet --no-cache-dir numpy pandas &&
+             python -m airline_data.generate --seed ${TEAM_SEED:-12345} --rows ${DATA_ROWS:-2000000} --out /data/raw"
+
+  spark-job:
+    profiles: ["batch"]
+    image: apache/spark:3.5.3-python3
+    user: root
+    volumes:
+      - ./spark/jobs:/opt/jobs:ro
+      - ./data:/data
+    command: >
+      /opt/spark/bin/spark-submit --master local[*] --driver-memory ${SPARK_DRIVER_MEMORY:-3g}
+      /opt/jobs/curate_reservations.py
+      --raw /data/raw --curated /data/lake/curated
+      --run-log /data/lake/_emr_local/runs.jsonl
 
 volumes:
   postgres_data:

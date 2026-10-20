@@ -1,0 +1,23 @@
+server {
+    listen 80;
+    server_name _;
+    root /usr/share/nginx/html;
+
+    gzip on;
+    gzip_types text/css application/javascript application/json image/svg+xml;
+
+    # API del backend (mismo origen para el navegador)
+    location /api/ {
+        proxy_pass ${BACKEND_URL}/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_read_timeout 30s;
+    }
+
+    location = /manager { try_files /manager.html =404; }
+    location = /manager/ { try_files /manager.html =404; }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}

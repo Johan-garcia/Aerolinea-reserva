@@ -45,3 +45,12 @@ htmlcov/
 *.db
 *.db-*
 
+
+# Parcial 2: datos generados y artefactos locales
+data/
+local_harness/report.json
+local_harness/report.md
+parcial2-harness/report.json
+parcial2-harness/report.md
+~$*.docx
+.DS_Store

@@ -1,0 +1,13 @@
+# Override para el EC2 del Learner Lab:
+#   docker compose -f docker-compose.yml -f docker-compose.aws.yml up -d --build
+# El backend consulta Athena (R7) con el rol de la instancia (LabInstanceProfile); no hay credenciales en archivos.
+services:
+  api:
+    environment:
+      ANALYTICS_ENGINE: athena
+      ATHENA_DATABASE: ${ATHENA_DATABASE:-airline_analytics}
+      ATHENA_WORKGROUP: ${ATHENA_WORKGROUP:-primary}
+      ATHENA_OUTPUT: ${ATHENA_OUTPUT:?Defina ATHENA_OUTPUT=s3://SU-BUCKET/athena-results/ en .env}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+  db:
+    ports: !reset []   # PostgreSQL no se expone fuera del EC2

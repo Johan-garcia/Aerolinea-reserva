@@ -1,7 +1,9 @@
 from fastapi import FastAPI
+from fastapi.responses import RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.api.v1.router import api_router
+from app.api.contract import router as contract_router
 from app.core.database import engine
 from app.models.base import Base
 # Importar modelos para que Base.metadata reconozca todas las tablas
@@ -15,9 +17,9 @@ app = FastAPI(
         "control de concurrencia pesimista para 0% de sobreventa, auditoría inmutable e integración B2B."
     ),
     version="1.0.0",
-    openapi_url=f"{settings.API_V1_PREFIX}/openapi.json",
-    docs_url=f"{settings.API_V1_PREFIX}/docs",
-    redoc_url=f"{settings.API_V1_PREFIX}/redoc",
+    openapi_url="/openapi.json",
+    docs_url="/docs",
+    redoc_url="/redoc",
 )
 
 # Configuración de CORS
@@ -29,7 +31,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Registro de routers modulares v1
+# Contrato del Parcial 2 en la raíz (lo que consumen el harness y el frontend)
+app.include_router(contract_router)
+
+# Registro de routers modulares v1 (Parcial 1)
 app.include_router(api_router, prefix=settings.API_V1_PREFIX)
 
 
@@ -37,7 +42,18 @@ app.include_router(api_router, prefix=settings.API_V1_PREFIX)
 def root():
     return {
         "message": f"Bienvenido a la API de {settings.PROJECT_NAME}",
-        "docs": f"{settings.API_V1_PREFIX}/docs",
-        "health": f"{settings.API_V1_PREFIX}/health",
+        "docs": "/docs",
+        "health": "/health",
     }
 
+
+
+# Compatibilidad con el Parcial 1: la documentación vivía en /api/v1/docs y /api/v1/redoc.
+@app.get(f"{settings.API_V1_PREFIX}/docs", include_in_schema=False)
+def docs_v1():
+    return RedirectResponse("/docs")
+
+
+@app.get(f"{settings.API_V1_PREFIX}/redoc", include_in_schema=False)
+def redoc_v1():
+    return RedirectResponse("/redoc")

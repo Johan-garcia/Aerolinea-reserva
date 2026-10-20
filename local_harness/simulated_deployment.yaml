@@ -1,0 +1,9 @@
+# Despliegue PLANEADO en AWS que el runner local usa para pre-verificar R10-R12.
+# Debe coincidir con cost_projection.yaml y con lo que realmente se lance en el Learner Lab.
+ec2:
+  - {id: "i-backend-frontend-db", type: "t3.small", state: "running"}   # docker compose: postgres + api + nginx
+rds: []                                                                  # PostgreSQL corre en el mismo EC2 (ver guía, decisión 1)
+emr:
+  # 1 corrida/mes: 1 master + 2 core m4.large ~ 25 min -> EMR factura la hora iniciada: 3 inst x 4 NIH = 12
+  normalized_instance_hours: 12
+  instance_types: ["m4.large"]

@@ -1,0 +1,10 @@
+.git
+.venv
+data
+parcial2-harness
+*.zip
+*.docx
+.DS_Store
+**/__pycache__
+frontend
+spark
