@@ -28,6 +28,26 @@
       Los datos salen del histórico curado por el job de Spark y se consultan en Athena.
       El histórico cubre de enero de 2023 a diciembre de 2024; las reservas hechas en la página de clientes viven en la base transaccional y no se mezclan con este análisis.</p>
 
+    <section class="live" aria-labelledby="live-title">
+      <div class="live-head">
+        <h2 id="live-title"><span class="live-dot" id="live-dot" aria-hidden="true"></span>En vivo</h2>
+        <label>Ventana
+          <select id="live-window" aria-label="Ventana de la vista en vivo">
+            <option value="5" selected>últimos 5 min</option>
+            <option value="15">últimos 15 min</option>
+            <option value="60">última hora</option>
+          </select>
+        </label>
+      </div>
+      <dl class="live-grid" aria-live="polite">
+        <div><dt>Búsquedas</dt><dd id="live-searches">–</dd></div>
+        <div><dt>Reservas</dt><dd id="live-reservations">–</dd></div>
+        <div><dt>Cancelaciones</dt><dd id="live-cancellations">–</dd></div>
+        <div><dt>Conversión</dt><dd id="live-conversion">–</dd></div>
+      </dl>
+      <p class="live-meta" id="live-meta">Eventos del stream de Kinesis contados por la hora en que ocurrieron. Se actualiza cada 5 s.</p>
+    </section>
+
     <div id="mgr-routes" class="mgr-routes"></div>
 
     <form id="mgr" class="mgr-form" autocomplete="off" novalidate>
@@ -51,6 +71,18 @@
       <h2 id="rank-title">Rutas que más llenan sus aviones</h2>
       <p class="lede">Ocupación acumulada de los 24 meses del histórico. Elige una ruta para ver su mes más reciente.</p>
       <div id="ranking"><p class="empty">Cargando ranking…</p></div>
+    </section>
+    <section class="ranking" aria-labelledby="cx-title">
+      <h2 id="cx-title">Consulta de cancelaciones</h2>
+      <p class="lede">Reservas confirmadas y canceladas por ruta, y su tasa de cancelación
+        (canceladas sobre el total de reservas). Ordenadas de mayor a menor tasa.</p>
+      <div class="cx-filter">
+        <label for="cx-month">Periodo</label>
+        <select id="cx-month" data-testid="cancellations-month">
+          <option value="">Todo el histórico</option>
+        </select>
+      </div>
+      <div id="cancellations" class="cx-wrap"><p class="empty">Cargando cancelaciones…</p></div>
     </section>
   </main>
 

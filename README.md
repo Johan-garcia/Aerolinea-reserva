@@ -1,12 +1,13 @@
 # Sistema de Reservas de Vuelos y Panel Analítico: Aerolínea Regional
 
-Proyecto de **Big Data e Ingeniería de Datos** (Juan Wilches, Johan García). Reúne los dos parciales en un
+Proyecto de **Big Data e Ingeniería de Datos** (Juan Wilches, Johan García). Reúne los tres parciales en un
 solo repositorio:
 
 | Parcial | Qué aporta |
 |---|---|
 | **Parcial 1** | Backend transaccional (FastAPI + PostgreSQL) con búsqueda de vuelos directos y con escala, reservas multitrayecto, pagos, cancelación con auditoría, canal B2B para agencias, control de concurrencia sin sobreventa y un ETL OLTP → OLAP en modelo estrella |
 | **Parcial 2** | Contrato de API verificable, **frontend** (clientes y panel gerencial), **job PySpark** (EMR) que limpia ~2 M reservas históricas, tablas en **Glue/Athena** y un endpoint de ocupación servido desde Athena; todo empaquetado en Docker |
+| **Parcial 3** | Eventos en **Kinesis** (búsquedas, reservas, cancelaciones), **vista en vivo** alimentada por el stream, landing zone en S3, **esquema estrella** (SCD2, `dim_date` con festivos y puentes) en Glue/Athena, cancelación de reservas y consulta de cancelaciones en el frontend. Ver [`DOCUMENTO_PARCIAL3.md`](DOCUMENTO_PARCIAL3.md) |
 
 Todo corre en local con Docker. Para AWS, el mismo `docker compose` se lanza en una EC2 cambiando una sola
 variable (`ANALYTICS_ENGINE=athena`).
@@ -289,6 +290,9 @@ como antecedente.
 ---
 
 ## 9. Despliegue en AWS
+
+> **Guías paso a paso para el Learner Lab:** Parcial 2 en [`DESPLIEGUE_AWS.md`](DESPLIEGUE_AWS.md) y
+> **Parcial 3 (Kinesis, worker, estrella) en [`DESPLIEGUE_AWS_PARCIAL3.md`](DESPLIEGUE_AWS_PARCIAL3.md)**.
 
 Pensado para el **AWS Academy Learner Lab** (presupuesto de US$ 50). Orden recomendado:
 

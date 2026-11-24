@@ -55,3 +55,15 @@ parcial2-harness/report.md
 ~$*.docx
 .DS_Store
 .venv-harness/
+
+# Parcial 3
+parcial3-harness-estudiantes/config.yaml.bak
+parcial3-harness-estudiantes/ref/
+local_harness_p3/report.json
+local_harness_p3/report.md
+.venv-harness3/
+parcial3-harness-estudiantes/report.json
+parcial3-harness-estudiantes/report.md
+# Enunciados y paquetes del profesor (se guardan fuera del repo)
+*.zip
+*.docx

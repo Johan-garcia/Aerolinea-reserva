@@ -1,6 +1,6 @@
-# Sistema completo del Parcial 2 en local.
+# Sistema completo (Parcial 2 + Parcial 3) en local.
 #
-#   docker compose up -d --build                          -> db + api + frontend (siempre encendidos)
+#   docker compose up -d --build                          -> db + api + worker + frontend (siempre encendidos)
 #   docker compose --profile batch run --rm datagen       -> genera data/raw con la semilla del equipo
 #   docker compose --profile batch run --rm spark-job     -> "EMR local": PySpark aplica C1-C5 y escribe Parquet
 #
@@ -46,9 +46,43 @@ services:
       AWS_REGION: ${AWS_REGION:-us-east-1}
       ANALYTICS_CACHE_TTL_SECONDS: ${ANALYTICS_CACHE_TTL_SECONDS:-0}
       DEMO_ROUTES: ${DEMO_ROUTES:-BOG-CTG,CTG-MDE,MDE-CUC,CTG-SMR,BAQ-BGA,LET-BAQ}
+      # Parcial 3: sin KINESIS_STREAM no se publican eventos (desarrollo sin AWS)
+      KINESIS_STREAM: ${KINESIS_STREAM:-}
+      WORKER_URL: http://worker:8001
     volumes:
       # El "data lake" local: el job Spark escribe aquí y DuckDB lee de aquí.
       - ./data/lake:/data/lake
+
+  # Parcial 3: único consumidor del stream (vista en vivo + landing zone) y ETL de la estrella.
+  # Misma imagen que la API; el puerto 8001 solo es visible dentro de la red de Docker.
+  worker:
+    image: airline-api:latest
+    container_name: airline_worker
+    restart: unless-stopped
+    depends_on:
+      - api
+    command: ["python", "-m", "app.worker.main"]
+    environment:
+      KINESIS_STREAM: ${KINESIS_STREAM:-}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      RAW_EVENTS_URI: ${RAW_EVENTS_URI:-}       # vacío = /data/lake/p3/raw/events
+      STAR_URI: ${STAR_URI:-}                   # vacío = /data/lake/p3/star (sin Athena)
+      STAR_DATABASE: ${STAR_DATABASE:-airline_star}
+      STAR_WORKGROUP: ${STAR_WORKGROUP:-airline-p3}
+      ATHENA_OUTPUT: ${ATHENA_OUTPUT:-}
+      STAR_REFRESH_MINUTES: ${STAR_REFRESH_MINUTES:-10}
+      LANDING_FLUSH_SECONDS: ${LANDING_FLUSH_SECONDS:-60}
+      REF_DIR: /workspace/ref
+      STATE_DIR: /state
+    volumes:
+      - ./ref:/workspace/ref:ro               # routes_ref.csv, route_category_history.csv, holidays_ref.csv
+      - ./data/lake:/data/lake
+      - worker_state:/state                   # checkpoint del stream + caché del raw
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8001/health || exit 1"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
 
   frontend:
     build: ./frontend
@@ -89,3 +123,4 @@ services:
 
 volumes:
   postgres_data:
+  worker_state:

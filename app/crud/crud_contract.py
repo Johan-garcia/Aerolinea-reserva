@@ -131,3 +131,40 @@ def reservar(db: Session, data: ReservationCreate) -> Reservation:
 
 def obtener_reserva(db: Session, reservation_id: str) -> Reservation | None:
     return db.get(Reservation, reservation_id)
+
+
+class ReservationNotFound(Exception):
+    pass
+
+
+class AlreadyCancelled(Exception):
+    pass
+
+
+def cancelar(db: Session, reservation_id: str) -> Reservation:
+    """Cancela la reserva y libera la silla en una sola transacción (Parcial 3, A.2).
+
+    El UPDATE condicional (status <> 'CANCELLED') hace que dos cancelaciones simultáneas de la
+    misma reserva no liberen dos sillas: solo una obtiene fila; la otra recibe 409.
+    """
+    fila = db.execute(
+        text(
+            "UPDATE reservations SET status = 'CANCELLED' "
+            "WHERE reservation_id = :rid AND status <> 'CANCELLED' RETURNING flight_id"
+        ),
+        {"rid": reservation_id},
+    ).first()
+    if fila is None:
+        db.rollback()
+        if db.get(Reservation, reservation_id) is None:
+            raise ReservationNotFound(reservation_id)
+        raise AlreadyCancelled(reservation_id)
+
+    db.execute(
+        text("UPDATE flights SET seats_available = LEAST(seats_available + 1, capacity) WHERE flight_id = :fid"),
+        {"fid": fila.flight_id},
+    )
+    db.commit()
+    reserva = db.get(Reservation, reservation_id)
+    db.refresh(reserva)
+    return reserva

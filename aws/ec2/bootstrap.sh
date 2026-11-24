@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Prepara la EC2 (Ubuntu 24.04, t3.small) y levanta db + api + frontend con Athena como motor analítico.
+# Prepara la EC2 (Ubuntu 24.04, t3.small) y levanta db + api + worker + frontend con Athena como motor analítico.
 #
 #   BUCKET=airline-wilches-garcia bash aws/ec2/bootstrap.sh
 #
@@ -36,6 +36,12 @@ ATHENA_DATABASE=airline_analytics
 ATHENA_WORKGROUP=primary
 AWS_REGION=us-east-1
 UVICORN_WORKERS=2
+# Parcial 3 (ver aws/p3/setup.sh)
+KINESIS_STREAM=airline-events
+RAW_EVENTS_URI=s3://${BUCKET}/raw/events/
+STAR_URI=s3://${BUCKET}/star/
+STAR_DATABASE=airline_star
+STAR_WORKGROUP=airline-p3
 EOF
 
 echo "5/5 Construyendo y levantando contenedores (la primera vez tarda 3-5 min)"

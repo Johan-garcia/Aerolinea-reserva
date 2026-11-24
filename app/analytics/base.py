@@ -38,6 +38,18 @@ class QueryEngine(ABC):
             [],
         )
 
+    def cancellations_by_route(self, month: str | None = None) -> list[dict]:
+        """Consulta de cancelaciones: confirmadas, canceladas y tasa por ruta (route_month_metrics)."""
+        where, params = ("WHERE month = ?", [month]) if month else ("", [])
+        rows = self.query(
+            f"SELECT route, sum(bookings) AS bookings, sum(cancellations) AS cancellations, "
+            f"CAST(sum(cancellations) AS DOUBLE) / nullif(sum(bookings) + sum(cancellations), 0) AS cancellation_rate, "
+            f"sum(revenue_cents) AS revenue_cents "
+            f"FROM {self.metrics} {where} GROUP BY route ORDER BY cancellation_rate DESC, route",
+            params,
+        )
+        return [{**r, "cancellation_rate": float(r["cancellation_rate"] or 0.0)} for r in rows]
+
     def catalog(self) -> dict:
         rows = self.query(f"SELECT DISTINCT route, month FROM {self.metrics}", [])
         return {

@@ -38,6 +38,13 @@ app.include_router(contract_router)
 app.include_router(api_router, prefix=settings.API_V1_PREFIX)
 
 
+@app.on_event("shutdown")
+def _vaciar_eventos():
+    # Parcial 3: al apagar, se da un margen para enviar los eventos que siguen en cola.
+    from app.events import publisher
+    publisher.flush(timeout=5.0)
+
+
 @app.get("/")
 def root():
     return {

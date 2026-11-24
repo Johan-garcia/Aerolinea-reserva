@@ -1,4 +1,4 @@
-// Flujo del cliente: buscar -> elegir vuelo -> nombre del pasajero -> confirmación (R8).
+// Flujo del cliente: buscar -> elegir vuelo -> nombre del pasajero -> confirmación (R8) -> cancelar (P3).
 import { api, cityOf, el, fmtDate, money, routePicker } from "./common.js";
 
 const $ = (id) => document.getElementById(id);
@@ -194,10 +194,51 @@ function renderConfirmation(r, f, titulo = "Reserva confirmada") {
   const route = r.route || f.route;
   const flightDate = r.flight_date || f.flight_date;
   const [o, d] = route.split("-");
-  const pass = el("article", { class: "boarding-pass reveal", "aria-labelledby": "bp-title" },
+  const cancelled = r.status === "CANCELLED";
+  const status = cancelled
+    ? el("span", { class: "status-cancel", id: "bp-title", testid: "reservation-status" },
+        el("span", { "aria-hidden": "true" }, "✕"), titulo === "Reserva confirmada" ? "Reserva cancelada" : titulo)
+    : el("span", { class: "status-ok", id: "bp-title", testid: "reservation-status" },
+        el("span", { "aria-hidden": "true" }, "✓"), titulo);
+
+  // Cancelar (POST /reservations/{id}/cancel): pide confirmación en el mismo boarding pass.
+  const actions = el("div", { class: "bp-actions" });
+  const cancelError = el("p", { class: "form-error", role: "alert", hidden: true });
+  const showCancelButton = () => actions.replaceChildren(
+    el("button", { class: "btn ghost danger", type: "button", testid: "cancel-reservation",
+      onclick: askConfirm }, "Cancelar reserva"),
+    otherFlightButton());
+  function askConfirm() {
+    const yes = el("button", { class: "btn danger", type: "button", testid: "cancel-confirm", onclick: doCancel },
+      "Sí, cancelar");
+    actions.replaceChildren(
+      el("span", { class: "confirm-text" }, "¿Cancelar la reserva? La silla queda libre para otro pasajero."),
+      yes,
+      el("button", { class: "btn ghost", type: "button", onclick: showCancelButton }, "No, conservarla"));
+    yes.focus();
+  }
+  async function doCancel(ev) {
+    ev.target.disabled = true;
+    ev.target.textContent = "Cancelando…";
+    cancelError.hidden = true;
+    try {
+      const c = await api(`/reservations/${encodeURIComponent(r.reservation_id)}/cancel`, { method: "POST" });
+      renderConfirmation(c, f, "Reserva cancelada");
+    } catch (e) {
+      if (e.status === 409) {   // otra pestaña la canceló primero: se muestra el estado real
+        const fresh = await api(`/reservations/${encodeURIComponent(r.reservation_id)}`).catch(() => null);
+        if (fresh) return renderConfirmation(fresh, f, "Esta reserva ya estaba cancelada");
+      }
+      cancelError.hidden = false;
+      cancelError.textContent = `No se pudo cancelar la reserva: ${e.message}`;
+      showCancelButton();
+    }
+  }
+  if (cancelled) actions.replaceChildren(otherFlightButton()); else showCancelButton();
+
+  const pass = el("article", { class: `boarding-pass reveal${cancelled ? " is-cancelled" : ""}`, "aria-labelledby": "bp-title" },
     el("div", { class: "main" },
-      el("span", { class: "status-ok", id: "bp-title" },
-        el("span", { "aria-hidden": "true" }, "✓"), titulo),
+      status,
       el("p", { class: "bp-route" }, o, el("span", { "aria-hidden": "true" }, "→"), d),
       el("dl", { class: "bp-grid" },
         el("div", {}, el("dt", {}, "Pasajero"), el("dd", {}, r.passenger_name)),
@@ -205,12 +246,14 @@ function renderConfirmation(r, f, titulo = "Reserva confirmada") {
         el("div", {}, el("dt", {}, "Fecha"), el("dd", {}, fmtDate(flightDate))),
         el("div", {}, el("dt", {}, "Clase"), el("dd", {}, r.fare_class === "BUSINESS" ? "Ejecutiva" : "Económica")),
         r.price_cents != null ? el("div", {}, el("dt", {}, "Precio"), el("dd", {}, money(r.price_cents))) : null,
+        el("div", {}, el("dt", {}, "Estado"), el("dd", {}, cancelled ? "Cancelada" : "Confirmada")),
       ),
+      cancelError,
     ),
     el("div", { class: "tear" },
       el("div", {}, el("span", { class: "meta" }, "Código de reserva"),
         el("strong", { class: "res-id", testid: "confirmation-id" }, r.reservation_id)),
-      el("button", { class: "btn ghost", type: "button", onclick: () => runSearch() }, "Reservar otro vuelo"),
+      actions,
     ),
   );
   results.hidden = false;
@@ -218,7 +261,15 @@ function renderConfirmation(r, f, titulo = "Reserva confirmada") {
   pass.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-// Consultar una reserva ya hecha con su código (GET /reservations/{id}, R3).
+// "Reservar otro vuelo": repite la última búsqueda o, si se llegó por el código, vuelve al buscador.
+function otherFlightButton() {
+  return el("button", { class: "btn ghost", type: "button", onclick: () => {
+    if (lastSearch) runSearch();
+    else { results.hidden = true; origin.focus(); window.scrollTo({ top: 0, behavior: "smooth" }); }
+  } }, "Reservar otro vuelo");
+}
+
+// Consultar una reserva ya hecha con su código (GET /reservations/{id}); desde ahí se puede cancelar.
 const lookup = $("lookup");
 const lookupId = $("lookup-id");
 lookup.addEventListener("submit", async (ev) => {
@@ -232,7 +283,7 @@ lookup.addEventListener("submit", async (ev) => {
   btn.disabled = true;
   try {
     const r = await api(`/reservations/${encodeURIComponent(code)}`);
-    renderConfirmation(r, {}, "Reserva encontrada");
+    renderConfirmation(r, {}, r.status === "CANCELLED" ? "Reserva cancelada" : "Reserva encontrada");
   } catch (e) {
     showNotice(e.status === 404 ? `No existe una reserva con el código ${code}.` : `No se pudo consultar la reserva: ${e.message}`, true);
   } finally {

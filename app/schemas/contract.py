@@ -65,6 +65,22 @@ class OccupancyOut(BaseModel):
     source: str
 
 
+class CancellationRouteOut(BaseModel):
+    route: str
+    bookings: int              # reservas confirmadas (no canceladas)
+    cancellations: int
+    cancellation_rate: float   # cancelaciones / (confirmadas + canceladas)
+    revenue_cents: int | None = None
+
+
+class LiveOut(BaseModel):
+    window_minutes: int
+    searches: int
+    reservations: int
+    cancellations: int
+    conversion: float
+
+
 class RouteOccupancyOut(BaseModel):
     route: str
     occupancy: float

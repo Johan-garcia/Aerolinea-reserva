@@ -1,4 +1,5 @@
 // Panel gerencial (R9): muestra exactamente el valor de GET /analytics/occupancy.
+// Parcial 3: vista en vivo (GET /analytics/live) y consulta de cancelaciones (GET /analytics/cancellations).
 import { api, cityOf, el, int, money, routePicker } from "./common.js";
 
 const $ = (id) => document.getElementById(id);
@@ -145,5 +146,69 @@ async function loadCatalog() {
   } catch { /* el panel funciona igual sin autocompletar */ }
 }
 
-loadCatalog();
+// ---------------------------------------------------------------- consulta de cancelaciones
+const cxMonth = $("cx-month");
+cxMonth.addEventListener("change", () => loadCancellations(cxMonth.value));
+
+async function loadCancellations(month = "") {
+  const host = $("cancellations");
+  host.replaceChildren(el("p", { class: "empty" }, month ? `Consultando ${monthName(month)}…` : "Consultando todo el histórico…"));
+  try {
+    const rows = await api("/analytics/cancellations", { params: month ? { month } : undefined });
+    if (!rows.length) { host.replaceChildren(el("p", { class: "empty" }, "No hay reservas en ese periodo.")); return; }
+    const max = Math.max(...rows.map((r) => r.cancellation_rate), 0.0001);
+    const tot = rows.reduce((a, r) => ({ b: a.b + r.bookings, c: a.c + r.cancellations }), { b: 0, c: 0 });
+    const table = el("table", { class: "cx-table", testid: "cancellations-table" },
+      el("caption", { class: "sr-only" }, "Cancelaciones por ruta"),
+      el("thead", {}, el("tr", {},
+        el("th", { scope: "col" }, "Ruta"),
+        el("th", { scope: "col", class: "num" }, "Confirmadas"),
+        el("th", { scope: "col", class: "num" }, "Canceladas"),
+        el("th", { scope: "col" }, "Tasa de cancelación"))),
+      el("tbody", {}, rows.map((r) => el("tr", {},
+        el("td", {}, el("span", { class: "cx-route" }, r.route), " ",
+          el("span", { class: "route-opt-cities" }, `${cityOf(r.route.slice(0, 3)) || ""} a ${cityOf(r.route.slice(4)) || ""}`)),
+        el("td", { class: "num" }, int.format(r.bookings)),
+        el("td", { class: "num" }, int.format(r.cancellations)),
+        el("td", {}, el("div", { class: "cx-rate" },
+          el("span", { class: "bar-track" }, el("span", { class: "bar-fill",
+            style: `display:block;width:${(r.cancellation_rate / max * 100).toFixed(1)}%` })),
+          el("span", { class: "bar-value" }, pct(r.cancellation_rate))))))),
+      el("tfoot", {}, el("tr", {},
+        el("th", { scope: "row" }, "Total"),
+        el("td", { class: "num" }, int.format(tot.b)),
+        el("td", { class: "num" }, int.format(tot.c)),
+        el("td", {}, el("span", { class: "bar-value" }, pct(tot.c / Math.max(tot.b + tot.c, 1)))))),
+    );
+    host.replaceChildren(table);
+  } catch (e) {
+    host.replaceChildren(el("p", { class: "notice error" }, `No se pudo consultar las cancelaciones: ${e.message}`));
+  }
+}
+
+// ---------------------------------------------------------------- vista en vivo
+const liveWindow = $("live-window");
+async function loadLive() {
+  try {
+    const l = await api("/analytics/live", { params: { window: liveWindow.value } });
+    $("live-searches").textContent = int.format(l.searches);
+    $("live-reservations").textContent = int.format(l.reservations);
+    $("live-cancellations").textContent = int.format(l.cancellations);
+    $("live-conversion").textContent = pct(l.conversion);
+    $("live-dot").classList.remove("off");
+    $("live-meta").textContent = `Eventos del stream de Kinesis contados por la hora en que ocurrieron. ` +
+      `Actualizado ${new Date().toLocaleTimeString("es-CO")}.`;
+  } catch (e) {
+    $("live-dot").classList.add("off");
+    $("live-meta").textContent = `La vista en vivo no está disponible (${e.message}). ¿Está creado el stream y encendido el worker?`;
+  }
+}
+liveWindow.addEventListener("change", loadLive);
+setInterval(() => { if (!document.hidden) loadLive(); }, 5000);
+
+loadCatalog().then(() => {
+  cxMonth.append(...months.map((m) => el("option", { value: m }, monthName(m))));
+});
 loadRanking();
+loadCancellations();
+loadLive();

@@ -1,0 +1,17 @@
+# Config del harness del Parcial 3 (SIN credenciales: el harness usa el rol de la instancia o ~/.aws).
+# aws/p3/run_harness.sh actualiza la IP y el bucket antes de cada corrida.
+team_id: "team-wilches-garcia"
+seed: 24306              # semilla del equipo (la misma de ref/SEED)
+
+backend:
+  base_url: "http://54.146.171.92:8000"    # IP pública del EC2 (cambia al reiniciar el Lab)
+
+aws:
+  region: us-east-1
+  kinesis_stream: airline-events
+  raw_events_uri: "s3://airline-wilches-garcia-24306/raw/events/"
+  athena_workgroup: airline-p3                         # límite de 1 GB por consulta (aws/p3/setup.sh)
+  athena_database: airline_star
+  athena_output: "s3://airline-wilches-garcia-24306/athena-results/"
+
+cost_projection_file: ../cost_projection.yaml
