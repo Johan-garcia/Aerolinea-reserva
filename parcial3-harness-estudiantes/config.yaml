@@ -4,7 +4,7 @@ team_id: "team-wilches-garcia"
 seed: 24306              # semilla del equipo (la misma de ref/SEED)
 
 backend:
-  base_url: "http://54.146.171.92:8000"    # IP pública del EC2 (cambia al reiniciar el Lab)
+  base_url: "http://100.58.129.70:8000"    # IP pública del EC2 (cambia al reiniciar el Lab)
 
 aws:
   region: us-east-1
