@@ -40,15 +40,21 @@ variable (`ANALYTICS_ENGINE=athena`).
 ## 1. Arquitectura
 
 ```
-                     ┌─────────────────────── EC2 t3.small · docker compose ───────────────────────┐
- Navegador ─:3000─▶  │ frontend (nginx) ─/api/─▶ api (FastAPI, 2 workers) ─▶ db (PostgreSQL 16)     │
-                     │  /  y  /manager              │                                              │
-                     └──────────────────────────────┼──────────────────────────────────────────────┘
-                                                    │ solo /analytics/*
-                                                    ▼
- CSV crudos ─▶ S3 raw/ ─▶ EMR (PySpark: limpieza C1–C5) ─▶ S3 curated/ (Parquet por mes) ◀─ Glue Catalog ◀─ Athena
+                     ┌──────────────────────── EC2 t3.small · docker compose ────────────────────────┐
+ Navegador ─:3000─▶  │ frontend (nginx) ─/api/─▶ api (FastAPI, 2 workers) ─▶ db (PostgreSQL 16)      │
+                     │  /  y  /manager              │   │ publica eventos (P3)                       │
+                     │                              │   ▼                                            │
+                     │                              │  worker (P3) ─ lee el stream, vista en vivo,   │
+                     │                              │   landing zone y estrella cada 10 min         │
+                     └──────────────────────────────┼───┼────────────────────────────────────────────┘
+                                                    │   │                       │
+                              solo /analytics/*     │   ▼ PutRecord (P3)        ▼ JSON gzip + Parquet
+                                                    ▼  Kinesis "airline-events"  S3 raw/events/, star/
+ CSV crudos ─▶ S3 raw/ ─▶ EMR (PySpark: C1–C5) ─▶ S3 curated/ ◀─ Glue Catalog (airline_analytics,
+                                                                    airline_star) ◀─ Athena (workgroup airline-p3, 1 GB)
 
- En local:  S3 = carpeta data/   ·   EMR = contenedor apache/spark   ·   Athena = DuckDB dentro del api
+ En local:  S3 = carpeta data/ · EMR = contenedor apache/spark · Athena = DuckDB dentro del api
+            Kinesis = simulado con moto (harness) o desactivado (KINESIS_STREAM vacío)
 ```
 
 Ideas clave:
@@ -57,6 +63,10 @@ Ideas clave:
   Athena/DuckDB sobre Parquet). Un panel lento no frena las reservas.
 - **Sin sobreventa.** Un `UPDATE … WHERE seats_available > 0` atómico (parcial 2) y
   `SELECT … FOR UPDATE` con locks ordenados (parcial 1), más `CHECK (asientos >= 0)` en la base.
+- **Dos caminos de datos (P3).** La vista en vivo se alimenta del stream (segundos); la analítica
+  histórica llega por la landing zone y la estrella en Parquet (minutos). Las búsquedas van a Kinesis
+  como evento de bajo riesgo; las reservas y cancelaciones son críticas y se reintentan hasta que Kinesis
+  las acepte.
 - **Mismo artefacto en todos lados.** El job PySpark y la imagen del backend son los mismos en local y
   en AWS; solo cambian rutas y variables de entorno.
 
@@ -75,6 +85,9 @@ Ideas clave:
 │   │   ├── base.py               #   SQL de negocio común (ocupación, top rutas, catálogo)
 │   │   ├── athena_engine.py      #   Amazon Athena (AWS)
 │   │   └── duckdb_engine.py      #   DuckDB sobre el Parquet local (desarrollo)
+│   ├── events/                   # P3: publicador asíncrono a Kinesis (búsquedas best-effort, reservas críticas)
+│   ├── worker/                   # P3: único consumidor del stream; vista en vivo, landing zone y refresco
+│   ├── star/                     # P3: ETL de la estrella (dim_date, dim_route SCD2, dim_fare_class, facts)
 │   ├── crud/                     # Lógica transaccional (crud_contract.py = P2; el resto = P1)
 │   ├── models/                   # ORM (contract.py = flights/reservations P2; el resto = modelo ER P1)
 │   ├── schemas/                  # Pydantic (contract.py = P2)
@@ -89,11 +102,16 @@ Ideas clave:
 │   └── athena/create_tables.sql  # DDL de las tablas en Glue/Athena (partition projection)
 ├── scripts/                      # Semillas, ETL P1, pruebas de concurrencia y de endpoints
 ├── tests/                        # Pruebas pytest del backend (P1 + motor Athena)
+├── aws/p3/                       # P3: stream.sh (crear/borrar Kinesis), setup.sh (workgroup y base),
+│                                 #     reset.sh (arranque limpio), run_harness.sh, generate_ref.sh
+├── ref/                          # P3: CSV de dimensiones generados con la semilla del equipo
+├── parcial3-harness-estudiantes/ # P3: harness oficial del parcial 3 (no editar)
+├── entrega/parcial3/             # P3: report.md y report.json de la corrida oficial en AWS
 ├── local_harness/                # Corre el harness oficial contra el sistema local
 ├── parcial2-harness/             # Harness oficial del parcial 2 (no editar harness/ ni tests/)
 ├── docker-compose.yml            # db + api + frontend, y pasos batch (datagen, spark-job)
 ├── docker-compose.aws.yml        # Override para la EC2 (Athena, BD sin puerto público)
-├── cost_projection.yaml          # Proyección de costos mensual (R12)
+├── cost_projection.yaml          # Proyección de costos mensual (R12, P3)
 ├── Dockerfile                    # Imagen del backend
 └── GUIA_PARCIAL2.md              # Guía detallada y decisiones
 ```
@@ -250,6 +268,16 @@ configuración local y un adaptador que reemplaza a AWS (S3 = `data/lake`, Athen
 EMR = el registro del job Spark). R10–R12 se verifican sobre el despliegue **planeado**
 (`local_harness/simulated_deployment.yaml`). Resultado actual: **70 / 70**.
 
+### 7.4 Harness oficial del parcial 3 contra AWS
+
+```bash
+BUCKET=airline-<equipo> bash aws/p3/reset.sh          # arranque limpio: stream, landing y estrella
+BUCKET=airline-<equipo> bash aws/p3/run_harness.sh    # actualiza IP y bucket en config.yaml, corre y copia el reporte
+```
+
+Resultado de la corrida en AWS (ver `entrega/parcial3/report.md`): **70 / 70**. R2 (ráfaga de 200 búsquedas
+con 50 en paralelo, p95 ≤ 1 s) es sensible a la CPU del t3.small: en algunas corridas superó el límite.
+
 ### 7.2 Pruebas del backend (parcial 1 + motor Athena)
 
 ```bash
@@ -293,6 +321,14 @@ como antecedente.
 
 > **Guías paso a paso para el Learner Lab:** Parcial 2 en [`DESPLIEGUE_AWS.md`](DESPLIEGUE_AWS.md) y
 > **Parcial 3 (Kinesis, worker, estrella) en [`DESPLIEGUE_AWS_PARCIAL3.md`](DESPLIEGUE_AWS_PARCIAL3.md)**.
+> Resumen del P3 sobre la EC2 ya desplegada:
+>
+> ```bash
+> bash aws/p3/setup.sh                 # workgroup airline-p3 (1 GB por consulta) y base airline_star
+> bash aws/p3/stream.sh create         # Kinesis: 1 shard aprovisionado, 24 h, sin consumidores EFO
+> sudo docker compose -f docker-compose.yml -f docker-compose.aws.yml up -d --build
+> bash aws/p3/stream.sh delete         # al terminar: el shard cobra por hora mientras exista
+> ```
 
 Pensado para el **AWS Academy Learner Lab** (presupuesto de US$ 50). Orden recomendado:
 
@@ -375,6 +411,12 @@ Variables de entorno del backend (ver `app/core/config.py` y `.env.example`):
 | `DEMO_ROUTES` | `BOG-CTG,…` | Rutas de los vuelos de demostración |
 | `DEMO_DAYS` | `30` | Días hacia adelante con vuelos de demostración |
 | `DEV_RELOAD` | `0` | `1` = uvicorn con `--reload` (desarrollo) |
+| `KINESIS_STREAM` | vacío | P3: nombre del stream; vacío = no se publican eventos |
+| `RAW_EVENTS_URI` | – | P3: `s3://…/raw/events/`, landing zone (obligatorio en AWS) |
+| `STAR_URI` | – | P3: `s3://…/star/`, Parquet de la estrella |
+| `STAR_DATABASE` | `airline_star` | P3: base de Glue de la estrella |
+| `STAR_WORKGROUP` | `airline-p3` | P3: workgroup de Athena con límite de 1 GB por consulta |
+| `STAR_REFRESH_MINUTES` | `10` | P3: frecuencia del refresco de la estrella |
 
 Variables de los pasos batch: `TEAM_SEED` (semilla), `DATA_ROWS` (filas, por defecto 2.000.000) y
 `SPARK_DRIVER_MEMORY` (por defecto `3g`).
@@ -383,19 +425,24 @@ Variables de los pasos batch: `TEAM_SEED` (semilla), `DATA_ROWS` (filas, por def
 
 ## 11. Costos
 
-`cost_projection.yaml` (el harness suma los `line_items`):
+`cost_projection.yaml` (el harness suma los `line_items`; ver también la sección de supuestos del archivo):
 
 | Servicio | Detalle | USD/mes |
 |---|---|---|
-| EC2 | t3.small 24/7 (PostgreSQL + FastAPI + nginx) | 15,20 |
+| EC2 | t3.small 24/7 (PostgreSQL + FastAPI + worker + nginx) | 15,20 |
 | EBS | 20 GB gp3 | 1,60 |
-| S3 | ~0,2 GB + peticiones | 0,10 |
-| Athena | ~9.000 consultas × 10 MB mínimo | 0,45 |
-| EMR | 1 corrida/mes, 3 × m4.large, 1 h | 0,40 |
-| Glue | Data Catalog en capa gratuita | 0,00 |
-| **Total** | | **≈ 17,75** |
+| Kinesis | 1 shard aprovisionado, ~200 h/mes mientras se prueba (× 0,015 USD/h) | 3,00 |
+| S3 | ~0,3 GB (landing zone, Parquet de la estrella, histórico P2) + ~15.000 PUT | 0,20 |
+| Athena | ~9.000 consultas del panel + ~1.000 de la estrella × 10 MB mínimo | 0,50 |
+| EMR | Parcial 2: 1 corrida/mes, 3 × m4.large, 1 h | 0,40 |
+| Glue | Data Catalog: 7 tablas + ~30 particiones, capa gratuita | 0,00 |
+| **Total** | | **≈ 20,90** |
 
-El análisis de escenarios (datos ×10, consultas ×10) está en `GUIA_PARCIAL2.md`, sección 6.
+Si el shard existiera 24/7 (730 h), Kinesis costaría ≈ 10,95 USD/mes y el total ≈ 28,85. Por eso el stream
+se crea y se borra con `aws/p3/stream.sh`. El refresco de la estrella corre dentro del worker del EC2, así que
+su costo marginal es 0.
+
+El análisis de escenarios (datos ×10, consultas ×10) está en `GUIA_PARCIAL2.md`, sección 6, y en `DOCUMENTO_PARCIAL3.md` para el P3.
 
 ---
 
